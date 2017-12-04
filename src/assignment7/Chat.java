@@ -23,4 +23,19 @@ public class Chat {
         users.add(s);
         // TODO: update clinets
     }
+
+    public String getChatID() {
+        return chatID;
+    }
+
+    public String getLastMessage() {
+        if (messages.isEmpty()) {
+            return "No messages here yet...";
+        }
+        return messages.get(messages.size()-1).message;
+    }
+
+    public ArrayList<Message> getMessages() {
+        return messages;
+    }
 }

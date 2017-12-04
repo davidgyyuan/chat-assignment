@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.SocketTimeoutException;
 
 public class PacketInfo {
     public InetAddress ip;
@@ -39,6 +40,8 @@ public class PacketInfo {
         DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
         try {
             receiver.receive(packet);
+        } catch (SocketTimeoutException e){
+            return null;
         } catch (IOException e) {
             e.printStackTrace();
             return null;

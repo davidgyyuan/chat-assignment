@@ -1,13 +1,14 @@
 package assignment7;
 
 import javafx.application.Application;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.stage.Stage;
 
@@ -15,15 +16,25 @@ import java.io.IOException;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
+import java.util.ArrayList;
 
 public class ClientMain extends Application{
 
     static String name;
     static InetAddress serverIP;
     static DatagramSocket receiver;
+    static ArrayList<Chat> chats = new ArrayList<>();
 
-    public static void main(String[] args) throws SocketException {
-        receiver = new DatagramSocket(ChatConsts.clientPort);
+    public static void main(String... args) {
+        int i = 0;
+        while (true) {
+            try {
+                receiver = new DatagramSocket(ChatConsts.clientPort + i);
+                break;
+            } catch (SocketException e) {
+                i++;
+            }
+        }
         launch(args);
     }
 
@@ -31,8 +42,26 @@ public class ClientMain extends Application{
         primaryStage.setTitle("Login");
         GridPane loginGrid = new GridPane();
         Scene loginScene = new Scene(loginGrid);
+
         GridPane mainGrid = new GridPane();
         Scene mainScene = new Scene(mainGrid);
+
+        GridPane chatGrid = new GridPane();
+        Scene chatScene = new Scene(chatGrid);
+
+        Button backButton = new Button("Back");
+        backButton.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                primaryStage.setScene(mainScene);
+            }
+        });
+        ListView<String> chatHistory = new ListView<>();
+
+        chatGrid.add(backButton, col(true), row(true));
+        chatGrid.add(chatHistory, col(false), col(false));
+
+        resetRowCount();
 
         Label nameLabel = new Label("Username:");
         TextField nameField = new TextField();
@@ -46,6 +75,7 @@ public class ClientMain extends Application{
                     primaryStage.setTitle(
                             String.format("Username: %s, Server IP: %s", name, serverIP.getHostAddress()));
                     primaryStage.setScene(mainScene);
+                    primaryStage.sizeToScene();
                 }
             }
         });
@@ -56,9 +86,74 @@ public class ClientMain extends Application{
         loginGrid.add(ipField, col(false), row(false));
         loginGrid.add(login, col(true), row(true));
 
+        resetRowCount();
+
+        ListView<String> chatList = new ListView<>();
+        ObservableList<String> chatsInfo = FXCollections.observableArrayList(toSummaryChatInfo());
+        chatList.setItems(chatsInfo);
+        Button newChatButton = new Button("New Chat");
+        newChatButton.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                Chat c = newChat();
+                if (c != null) {
+                    chats.add(c);
+                    ObservableList<String> chatsInfo = FXCollections.observableArrayList(toSummaryChatInfo());
+                    chatList.setItems(chatsInfo);
+                }
+            }
+        });
+        Button openChatButton = new Button("Open Chat");
+        openChatButton.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                int selected = chatList.getSelectionModel().getSelectedIndex();
+                if (selected > -1) {
+                    ObservableList<String> chatsObservableList =
+                            FXCollections.observableArrayList(toSummaryChatHistory(selected));
+                    chatHistory.setItems(chatsObservableList);
+                    primaryStage.setScene(chatScene);
+                }
+            }
+        });
+
+        mainGrid.add(newChatButton, col(true), row(true));
+        mainGrid.add(chatList, col(true), row(true));
+        mainGrid.add(openChatButton, col(true), row(true));
+
         primaryStage.setScene(loginScene);
         primaryStage.sizeToScene();
         primaryStage.show();
+    }
+
+    private ArrayList<String> toSummaryChatHistory(int selected) {
+        Chat c = chats.get(selected);
+        ArrayList<String> entries = new ArrayList<>();
+        for (Message m : c.getMessages()) {
+            String s = String.format("%s said: %n %s", m.name, m.message);
+            entries.add(s);
+        }
+        return entries;
+    }
+
+    private ArrayList<String> toSummaryChatInfo() {
+        ArrayList<String> info = new ArrayList<>();
+        for (Chat c : chats) {
+            String s = "Chat ID: " + c.getChatID() + System.lineSeparator() + c.getLastMessage();
+            info.add(s);
+        }
+        return info;
+    }
+
+    private Chat newChat() {
+        try {
+            new PacketInfo(serverIP, 'c', name).sendPacket(true);
+        } catch (IOException e) {
+            return null;
+        }
+
+        PacketInfo response = PacketInfo.getNewData(receiver);
+        return new Chat(response.info, name);
     }
 
     private boolean sendUserRegister(String user, String ipFieldText) {
@@ -79,10 +174,14 @@ public class ClientMain extends Application{
         }
     }
 
-    // Grid Management
 
+    // Grid Management
     private static int r = -1;
+
     private static int c = 0;
+    private void resetRowCount() {
+        r = -1;
+    }
 
     private static int row(boolean i) {
         r += i ? 1 : 0;

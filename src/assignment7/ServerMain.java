@@ -35,7 +35,7 @@ public class ServerMain {
     // Chat ID to Chat
     static HashMap<String, Chat> chatMap = new HashMap<>();
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String... args) throws IOException {
         System.out.println("Server Starting...");
         System.out.print("Server IP: ");
         System.out.println(Inet4Address.getLocalHost().getHostAddress());

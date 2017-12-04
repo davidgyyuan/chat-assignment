@@ -1,8 +1,5 @@
 package assignment7;
 
-import assignment7.ChatConsts;
-import assignment7.Message;
-
 import java.io.IOException;
 import java.net.*;
 import java.util.HashMap;
@@ -42,10 +39,10 @@ public class ServerMain {
         System.out.println("Server Starting...");
         System.out.print("Server IP: ");
         System.out.println(Inet4Address.getLocalHost().getHostAddress());
-        receiver = new DatagramSocket(ChatConsts.port);
+        receiver = new DatagramSocket(ChatConsts.serverPort);
 
         while (true) {
-            PacketInfo receivedData = getNewData();
+            PacketInfo receivedData = PacketInfo.getNewData(receiver);
             if (receivedData == null) {
                 continue;
             }
@@ -54,12 +51,12 @@ public class ServerMain {
                     sendPacket(new PacketInfo(receivedData.ip, 'n', "User exists"));
                 }*/
                 userMap.put(receivedData.info, new User(receivedData.ip, receivedData.info));
-                sendPacket(new PacketInfo(receivedData.ip, 'y', " "));
+                new PacketInfo(receivedData.ip, 'y', " ").sendPacket(false);
             } else if (receivedData.function == 'c') {
                 String user = receivedData.info;
                 String id = generateID();
                 chatMap.put(id, new Chat(id, user));
-                sendPacket(new PacketInfo(receivedData.ip, 'y', id));
+                new PacketInfo(receivedData.ip, 'y', id).sendPacket(false);
             } else if (receivedData.function == 'a') {
                 String[] data = enhancedSplit(receivedData.info, 1);
                 String id = data[0];
@@ -67,9 +64,9 @@ public class ServerMain {
                 if (userMap.containsKey(user)) {
                     Chat c = chatMap.get(id);
                     c.addUser(user);
-                    sendPacket(new PacketInfo(receivedData.ip, 'y', " "));
+                    new PacketInfo(receivedData.ip, 'y', " ").sendPacket(false);
                 } else {
-                    sendPacket(new PacketInfo(receivedData.ip, 'n', "User does not exist"));
+                    new PacketInfo(receivedData.ip, 'n', "User does not exist").sendPacket(false);
                 }
             } else if (receivedData.function == 'm') {
                 String[] data = enhancedSplit(receivedData.info, 1);
@@ -114,25 +111,5 @@ public class ServerMain {
             }
         } while (chatMap.containsKey(potentialID.toString()));
         return potentialID.toString();
-    }
-
-    private static PacketInfo getNewData() {
-        byte buffer[] = new byte[ChatConsts.size];
-        DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-        try {
-            receiver.receive(packet);
-        } catch (IOException e) {
-            e.printStackTrace();
-            return null;
-        }
-        return new PacketInfo(packet.getAddress(), new String(buffer));
-    }
-
-    public static void sendPacket(PacketInfo packetInfo) throws IOException {
-        DatagramSocket sender = new DatagramSocket();
-        byte buffer[] = packetInfo.tail.getBytes();
-        DatagramPacket packet
-                = new DatagramPacket(buffer, buffer.length, packetInfo.ip, ChatConsts.port);
-        sender.send(packet);
     }
 }

@@ -147,7 +147,7 @@ public class ClientMain extends Application{
 
     private Chat newChat() {
         try {
-            new PacketInfo(serverIP, 'c', name).sendPacket(true);
+            new PacketInfo(receiver, ChatConsts.serverPort, serverIP, 'c', name).sendPacket(true, receiver.getLocalPort());
         } catch (IOException e) {
             return null;
         }
@@ -158,8 +158,9 @@ public class ClientMain extends Application{
 
     private boolean sendUserRegister(String user, String ipFieldText) {
         try {
-            new PacketInfo(InetAddress.getByName(ipFieldText), 'u', user).sendPacket(true);
+            new PacketInfo(receiver, ChatConsts.serverPort, InetAddress.getByName(ipFieldText), 'u', user).sendPacket(true, receiver.getLocalPort());
         } catch (IOException e) {
+            e.printStackTrace();
             error("Problem connecting to server, are you sure the IP address is accurate?");
             return false;
         }

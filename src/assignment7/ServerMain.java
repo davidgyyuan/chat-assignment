@@ -51,12 +51,12 @@ public class ServerMain {
                     sendPacket(new PacketInfo(receivedData.ip, 'n', "User exists"));
                 }*/
                 userMap.put(receivedData.info, new User(receivedData.ip, receivedData.info));
-                new PacketInfo(receivedData.ip, 'y', " ").sendPacket(false);
+                new PacketInfo(receiver, receivedData.port, receivedData.ip, 'y', " ").sendPacket(false, receiver.getLocalPort());
             } else if (receivedData.function == 'c') {
                 String user = receivedData.info;
                 String id = generateID();
                 chatMap.put(id, new Chat(id, user));
-                new PacketInfo(receivedData.ip, 'y', id).sendPacket(false);
+                new PacketInfo(receiver, receivedData.port, receivedData.ip, 'y', id).sendPacket(false, receiver.getLocalPort());
             } else if (receivedData.function == 'a') {
                 String[] data = enhancedSplit(receivedData.info, 1);
                 String id = data[0];
@@ -64,9 +64,9 @@ public class ServerMain {
                 if (userMap.containsKey(user)) {
                     Chat c = chatMap.get(id);
                     c.addUser(user);
-                    new PacketInfo(receivedData.ip, 'y', " ").sendPacket(false);
+                    new PacketInfo(receiver, receivedData.port, receivedData.ip, 'y', " ").sendPacket(false, receiver.getLocalPort());
                 } else {
-                    new PacketInfo(receivedData.ip, 'n', "User does not exist").sendPacket(false);
+                    new PacketInfo(receiver, receivedData.port, receivedData.ip, 'n', "User does not exist").sendPacket(false, receiver.getLocalPort());
                 }
             } else if (receivedData.function == 'm') {
                 String[] data = enhancedSplit(receivedData.info, 1);

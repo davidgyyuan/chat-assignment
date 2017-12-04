@@ -1,5 +1,7 @@
 package assignment7;
 
+import org.omg.PortableInterceptor.INACTIVE;
+
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -7,32 +9,37 @@ import java.net.InetAddress;
 import java.net.SocketTimeoutException;
 
 public class PacketInfo {
+    DatagramSocket receiver;
+    public int port;
     public InetAddress ip;
     public char function;
     public String info;
     public String tail;
 
-    public PacketInfo(InetAddress ip, String tail) {
+    public PacketInfo(DatagramSocket receiver, int port, InetAddress ip, String tail) {
+        this.receiver = receiver;
+        this.port = port;
         this.ip = ip;
         this.function = tail.charAt(0);
         this.info = tail.substring(1);
         this.tail = tail;
     }
 
-    public PacketInfo(InetAddress ip, char function, String info) {
+    public PacketInfo(DatagramSocket receiver, int port, InetAddress ip, char function, String info) {
+        this.receiver = receiver;
+        this.port = port;
         this.ip = ip;
         this.function = function;
         this.info = info;
         this.tail = function + info;
     }
 
-    public void sendPacket(boolean sendToServer) throws IOException {
-        DatagramSocket sender = new DatagramSocket();
+    public void sendPacket(boolean sendToServer, int port) throws IOException {
         byte buffer[] = this.tail.getBytes();
         DatagramPacket packet
                 = new DatagramPacket(
-                        buffer, buffer.length, this.ip, sendToServer ? ChatConsts.serverPort : ChatConsts.clientPort);
-        sender.send(packet);
+                        buffer, buffer.length, this.ip, this.port);
+        receiver.send(packet);
     }
 
     public static PacketInfo getNewData(DatagramSocket receiver) {
@@ -46,7 +53,7 @@ public class PacketInfo {
             e.printStackTrace();
             return null;
         }
-        return new PacketInfo(packet.getAddress(), removeNull(new String(buffer)));
+        return new PacketInfo(receiver, packet.getPort(), packet.getAddress(), removeNull(new String(buffer)));
     }
 
     private static String removeNull(String s) {

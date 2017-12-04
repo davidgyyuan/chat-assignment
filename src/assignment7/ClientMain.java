@@ -56,10 +56,28 @@ public class ClientMain extends Application{
                 primaryStage.setScene(mainScene);
             }
         });
+        Label chatIDLabel = new Label();
         ListView<String> chatHistory = new ListView<>();
+        TextField chatInputField = new TextField();
+        Button sendButton = new Button("Send Message");
+        sendButton.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                try {
+                    new PacketInfo(receiver, ChatConsts.serverPort, serverIP, 'm',
+                            chatIDLabel.getText() + ":" + chatInputField.getText())
+                            .sendPacket(true, receiver.getLocalPort());
+                    chatInputField.setText("");
+                } catch (IOException e) {
+                    error("Could not send message");
+                }
+            }
+        });
 
         chatGrid.add(backButton, col(true), row(true));
-        chatGrid.add(chatHistory, col(false), col(false));
+        chatGrid.add(chatHistory, col(false), row(true));
+        chatGrid.add(chatInputField, 1, row(true));
+        chatGrid.add(sendButton, 1, row(true));
 
         resetRowCount();
 
@@ -112,6 +130,7 @@ public class ClientMain extends Application{
                     ObservableList<String> chatsObservableList =
                             FXCollections.observableArrayList(toSummaryChatHistory(selected));
                     chatHistory.setItems(chatsObservableList);
+                    chatIDLabel.setText(chats.get(selected).getChatID());
                     primaryStage.setScene(chatScene);
                 }
             }

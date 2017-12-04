@@ -50,7 +50,7 @@ public class ServerMain {
                 /*if (userMap.containsKey(receivedData.info)) {
                     sendPacket(new PacketInfo(receivedData.ip, 'n', "User exists"));
                 }*/
-                userMap.put(receivedData.info, new User(receivedData.ip, receivedData.info));
+                userMap.put(receivedData.info, new User(receivedData.ip, receivedData.port, receivedData.info));
                 new PacketInfo(receiver, receivedData.port, receivedData.ip, 'y', " ").sendPacket(false, receiver.getLocalPort());
             } else if (receivedData.function == 'c') {
                 String user = receivedData.info;
@@ -96,7 +96,7 @@ public class ServerMain {
         }
         StringBuilder tail = new StringBuilder();
         for (int k = j; k < split.length; k++) {
-            tail.append(data[k]);
+            tail.append(split[k]);
         }
         data[j] = tail.toString();
         return data;

@@ -1,5 +1,7 @@
 package assignment7;
 
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -9,14 +11,13 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 
 import java.io.IOException;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.util.ArrayList;
-import java.util.Timer;
-import java.util.TimerTask;
 
 public class ClientMain extends Application{
 
@@ -46,27 +47,27 @@ public class ClientMain extends Application{
     }
 
     public void start(Stage primaryStage) {
-        Timer timer = new Timer();
-        timer.schedule(
-                new TimerTask() {
-                    @Override
-                    public void run() {
-                        if (! updateScanning) {
-                            return;
-                        }
-                        try {
-                            new PacketInfo(receiver, ChatConsts.serverPort, serverIP, 'r', name).sendPacket();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        PacketInfo response = PacketInfo.getNewData(receiver);
-                        int updates = Integer.parseInt(response.info);
-                        //System.out.println(updates);
-                        for (int i = 0; i < updates; i++) {
-                            processPacket(PacketInfo.getNewData(receiver));
-                        }
-                    }
-                }, 0, 1000);
+        Timeline socketChecker = new Timeline(new KeyFrame(Duration.seconds(1), new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                if (!updateScanning) {
+                    return;
+                }
+                try {
+                    new PacketInfo(receiver, ChatConsts.serverPort, serverIP, 'r', name).sendPacket();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                PacketInfo response = PacketInfo.getNewData(receiver);
+                int updates = Integer.parseInt(response.info);
+                //System.out.println(updates);
+                for (int i = 0; i < updates; i++) {
+                    processPacket(PacketInfo.getNewData(receiver));
+                }
+            }
+        }));
+        socketChecker.setCycleCount(Timeline.INDEFINITE);
+        socketChecker.play();
 
         primaryStage.setTitle("Login");
         GridPane loginGrid = new GridPane();
@@ -207,10 +208,18 @@ public class ClientMain extends Application{
                 }
             }
         });
+        Button quit = new Button("Quit");
+        quit.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                System.exit(0);
+            }
+        });
 
         mainGrid.add(newChatButton, col(true), row(true));
         mainGrid.add(chatList, col(true), row(true));
         mainGrid.add(openChatButton, col(true), row(true));
+        mainGrid.add(quit, col(true), row(true));
 
         primaryStage.setScene(loginScene);
         primaryStage.sizeToScene();

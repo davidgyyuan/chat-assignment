@@ -28,6 +28,7 @@ public class ClientMain extends Application{
 
     int chatIn = -1;
     boolean updateScanning = false;
+    boolean serverUp = false;
 
     ListView<String> chatList;
     ListView<String> chatHistory;
@@ -38,6 +39,7 @@ public class ClientMain extends Application{
         while (true) {
             try {
                 receiver = new DatagramSocket(ChatConsts.clientPort + i);
+                receiver.setSoTimeout(200);
                 break;
             } catch (SocketException e) {
                 i++;
@@ -59,6 +61,17 @@ public class ClientMain extends Application{
                     e.printStackTrace();
                 }
                 PacketInfo response = PacketInfo.getNewData(receiver);
+                if (response == null) {
+                    if (serverUp) {
+                        serverUp = false;
+                        error("Server is shut down.");
+                    }
+                    return;
+                }
+                if (! serverUp) {
+                    popup("Server is up.");
+                }
+                serverUp = true;
                 int updates = Integer.parseInt(response.info);
                 //System.out.println(updates);
                 for (int i = 0; i < updates; i++) {
@@ -121,7 +134,10 @@ public class ClientMain extends Application{
                     e.printStackTrace();
                 }
                 PacketInfo p = PacketInfo.getNewData(receiver);
-                if (p.function == 'y') {
+                if (p == null) {
+                    error("Server is down.");
+                }
+                else if (p.function == 'y') {
                     popup(String.format("User %s added to chat!", newUser));
                 } else {
                     if (p.info.equals("e")) {
@@ -143,7 +159,11 @@ public class ClientMain extends Application{
                     e.printStackTrace();
                 }
                 PacketInfo p = PacketInfo.getNewData(receiver);
-                popup(p.info);
+                if (p == null) {
+                    error("Server is down.");
+                } else {
+                    popup(p.info);
+                }
             }
         });
 
@@ -170,6 +190,7 @@ public class ClientMain extends Application{
                     primaryStage.setScene(mainScene);
                     primaryStage.sizeToScene();
                     updateScanning = true;
+                    serverUp = true;
                 }
             }
         });
@@ -227,6 +248,9 @@ public class ClientMain extends Application{
     }
 
     private void processPacket(PacketInfo newData) {
+        if (newData == null) {
+            return;
+        }
         if (newData.function == 'x') {
             String[] data = enhancedSplit(newData.info, 1);
             String chatID = data[0];
@@ -302,8 +326,11 @@ public class ClientMain extends Application{
             error("Problem connecting to server, are you sure the IP address is accurate?");
             return false;
         }
-        // TODO Concurrency, blocking method
         PacketInfo response = PacketInfo.getNewData(receiver);
+        if (response == null) {
+            error("No server found");
+            return false;
+        }
         if (response.function == 'y') {
             name = user;
             serverIP = response.ip;

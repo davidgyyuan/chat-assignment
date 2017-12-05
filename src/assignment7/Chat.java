@@ -1,7 +1,5 @@
 package assignment7;
 
-import java.io.IOException;
-import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -56,7 +54,7 @@ public class Chat {
         if (messages.isEmpty()) {
             return "No messages here yet...";
         }
-        return messages.get(messages.size()-1).message;
+        return messages.get(messages.size() - 1).message;
     }
 
     public ArrayList<Message> getMessages() {

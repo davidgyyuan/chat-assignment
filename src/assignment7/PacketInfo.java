@@ -34,7 +34,8 @@ public class PacketInfo {
         this.tail = function + info;
     }
 
-    public void sendPacket(boolean sendToServer, int port) throws IOException {
+    // TODO: Remove varargs they don't actually do anything anymore
+    public void sendPacket(Object... o) throws IOException {
         byte buffer[] = this.tail.getBytes();
         DatagramPacket packet
                 = new DatagramPacket(
@@ -62,5 +63,10 @@ public class PacketInfo {
             return s;
         }
         return s.substring(0, nullChar);
+    }
+
+    public void updateDestination(User u) {
+        this.port = u.port;
+        this.ip = u.ip;
     }
 }

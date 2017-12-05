@@ -15,14 +15,22 @@ import java.util.Random;
         a - add user to chat
             chatID:added user
         m - message
-            chatID:message
+            chatID:name:message
         u - user registration
             username
+        r - request for backlog -> number of backlogged actions
+            name
+        l - return all members of chat
+            chatID
 
         y - successful response
             some info
         n - unsuccessful response
             reason
+        x - new chat
+            chatID:inituser
+        p - new message
+            chatID:user:message
 
 */
 
@@ -51,36 +59,61 @@ public class ServerMain {
                     sendPacket(new PacketInfo(receivedData.ip, 'n', "User exists"));
                 }*/
                 userMap.put(receivedData.info, new User(receivedData.ip, receivedData.port, receivedData.info));
-                new PacketInfo(receiver, receivedData.port, receivedData.ip, 'y', " ").sendPacket(false, receiver.getLocalPort());
+                new PacketInfo(receiver, receivedData.port, receivedData.ip, 'y', " ").sendPacket();
             } else if (receivedData.function == 'c') {
                 String user = receivedData.info;
                 String id = generateID();
-                chatMap.put(id, new Chat(id, user));
-                new PacketInfo(receiver, receivedData.port, receivedData.ip, 'y', id).sendPacket(false, receiver.getLocalPort());
+                Chat c =  new Chat(id, user);
+                chatMap.put(id, c);
+                c.broadcastNewChat(user);
+                //new PacketInfo(receiver, receivedData.port, receivedData.ip, 'y', id).sendPacket(false, receiver.getLocalPort());
             } else if (receivedData.function == 'a') {
                 String[] data = enhancedSplit(receivedData.info, 1);
                 String id = data[0];
                 String user = data[1];
-                if (userMap.containsKey(user)) {
+                if (chatMap.get(id).hasUser(user)) {
+                    new PacketInfo(receiver, receivedData.port, receivedData.ip, 'n', "a").sendPacket();
+                }
+                else if (userMap.containsKey(user)) {
                     Chat c = chatMap.get(id);
                     c.addUser(user);
-                    new PacketInfo(receiver, receivedData.port, receivedData.ip, 'y', " ").sendPacket(false, receiver.getLocalPort());
+                    c.broadcastUserAdd(user);
+                    new PacketInfo(receiver, receivedData.port, receivedData.ip, 'y', " ").sendPacket();
                 } else {
-                    new PacketInfo(receiver, receivedData.port, receivedData.ip, 'n', "User does not exist").sendPacket(false, receiver.getLocalPort());
+                    new PacketInfo(receiver, receivedData.port, receivedData.ip, 'n', "e").sendPacket();
                 }
             } else if (receivedData.function == 'm') {
-                String[] data = enhancedSplit(receivedData.info, 1);
+                String[] data = enhancedSplit(receivedData.info, 2);
                 String id = data[0];
-                String message = data[1];
+                String name = data[1];
+                String message = data[2];
                 Chat c = chatMap.get(id);
-                c.addMessage(new Message(id, message, ipToName(receivedData.ip)));
+                c.addMessage(new Message(id, message, name));
+                c.broadcastLatestMessage();
+            } else if (receivedData.function == 'r') {
+                String name = receivedData.info;
+                User u = userMap.get(name);
+                new PacketInfo(receiver, receivedData.port, receivedData.ip, 'y', Integer.toString(u.backlog.size())).sendPacket();
+                while (! u.backlog.isEmpty()) {
+                    PacketInfo toBeSent = u.backlog.poll();
+                    toBeSent.updateDestination(u);
+                    toBeSent.sendPacket();
+                }
+            } else if (receivedData.function == 'l') {
+                String id = receivedData.info;
+                Chat c = chatMap.get(id);
+                StringBuilder users = new StringBuilder();
+                for (String user : c.getUsers()) {
+                    users.append(user).append(" ");
+                }
+                new PacketInfo(receiver, receivedData.port, receivedData.ip, 'y', users.toString()).sendPacket();
             }
         }
     }
 
-    private static String ipToName(InetAddress ip) {
+    private static String ipToName(InetAddress ip, int port) {
         for (User u : userMap.values()) {
-            if (u.ip.equals(ip)) {
+            if (u.ip.equals(ip) && u.port == port) {
                 return u.name;
             }
         }

@@ -1,16 +1,20 @@
 package assignment7;
 
 import java.net.InetAddress;
+import java.util.LinkedList;
+import java.util.Queue;
 
 public class User {
     public InetAddress ip;
     public int port;
     public String name;
+    public Queue<PacketInfo> backlog;
 
     public User(InetAddress ip, int port, String name) {
         this.ip = ip;
         this.port = port;
         this.name = name;
+        backlog = new LinkedList<>();
     }
 
     public boolean equals(Object o) {

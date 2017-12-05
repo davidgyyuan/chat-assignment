@@ -1,8 +1,6 @@
 package assignment7;
 
 import javafx.application.Application;
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
@@ -17,6 +15,8 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.util.ArrayList;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class ClientMain extends Application{
 
@@ -24,6 +24,13 @@ public class ClientMain extends Application{
     static InetAddress serverIP;
     static DatagramSocket receiver;
     static ArrayList<Chat> chats = new ArrayList<>();
+
+    int chatIn = -1;
+    boolean updateScanning = false;
+
+    ListView<String> chatList;
+    ListView<String> chatHistory;
+    String currentChatID = "";
 
     public static void main(String... args) {
         int i = 0;
@@ -39,6 +46,28 @@ public class ClientMain extends Application{
     }
 
     public void start(Stage primaryStage) {
+        Timer timer = new Timer();
+        timer.schedule(
+                new TimerTask() {
+                    @Override
+                    public void run() {
+                        if (! updateScanning) {
+                            return;
+                        }
+                        try {
+                            new PacketInfo(receiver, ChatConsts.serverPort, serverIP, 'r', name).sendPacket();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                        PacketInfo response = PacketInfo.getNewData(receiver);
+                        int updates = Integer.parseInt(response.info);
+                        //System.out.println(updates);
+                        for (int i = 0; i < updates; i++) {
+                            processPacket(PacketInfo.getNewData(receiver));
+                        }
+                    }
+                }, 0, 1000);
+
         primaryStage.setTitle("Login");
         GridPane loginGrid = new GridPane();
         Scene loginScene = new Scene(loginGrid);
@@ -54,10 +83,14 @@ public class ClientMain extends Application{
             @Override
             public void handle(ActionEvent event) {
                 primaryStage.setScene(mainScene);
+                chatIn = -1;
+
+                ObservableList<String> chatsInfo = FXCollections.observableArrayList(toSummaryChatInfo());
+                chatList.setItems(chatsInfo);
             }
         });
         Label chatIDLabel = new Label();
-        ListView<String> chatHistory = new ListView<>();
+        chatHistory = new ListView<>();
         TextField chatInputField = new TextField();
         Button sendButton = new Button("Send Message");
         sendButton.setOnAction(new EventHandler<ActionEvent>() {
@@ -65,21 +98,62 @@ public class ClientMain extends Application{
             public void handle(ActionEvent event) {
                 try {
                     new PacketInfo(receiver, ChatConsts.serverPort, serverIP, 'm',
-                            chatIDLabel.getText() + ":" + chatInputField.getText())
-                            .sendPacket(true, receiver.getLocalPort());
+                            currentChatID + ":" + name + ":" + chatInputField.getText())
+                            .sendPacket();
                     chatInputField.setText("");
                 } catch (IOException e) {
                     error("Could not send message");
                 }
             }
         });
+        TextField addUserField = new TextField();
+        Button addUserButton = new Button("Add User");
+        addUserButton.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                String newUser = addUserField.getText();
+                addUserField.setText("");
+                try {
+                    new PacketInfo(receiver, ChatConsts.serverPort, serverIP, 'a',
+                            String.format("%s:%s", currentChatID, newUser)).sendPacket();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                PacketInfo p = PacketInfo.getNewData(receiver);
+                if (p.function == 'y') {
+                    popup(String.format("User %s added to chat!", newUser));
+                } else {
+                    if (p.info.equals("e")) {
+                        error(String.format("User %s does not exist.", newUser));
+                    }
+                    else {
+                        error(String.format("User already in chat.", newUser));
+                    }
+                }
+            }
+        });
+        Button viewUsersButton = new Button("View Users");
+        viewUsersButton.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                try {
+                    new PacketInfo(receiver, ChatConsts.serverPort, serverIP, 'l', currentChatID).sendPacket();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                PacketInfo p = PacketInfo.getNewData(receiver);
+                popup(p.info);
+            }
+        });
 
-        chatGrid.add(backButton, col(true), row(true));
-        chatGrid.add(chatHistory, col(false), row(true));
-        chatGrid.add(chatInputField, 1, row(true));
-        chatGrid.add(sendButton, 1, row(true));
-
-        resetRowCount();
+        chatGrid.add(backButton, 0, 0);
+        chatGrid.add(chatIDLabel, 1, 0);
+        chatGrid.add(chatHistory, 1, 1);
+        chatGrid.add(chatInputField, 1, 2);
+        chatGrid.add(sendButton, 1, 3);
+        chatGrid.add(addUserField, 0, 2);
+        chatGrid.add(addUserButton, 0, 3);
+        chatGrid.add(viewUsersButton, 0, 1);
 
         Label nameLabel = new Label("Username:");
         TextField nameField = new TextField();
@@ -94,6 +168,7 @@ public class ClientMain extends Application{
                             String.format("Username: %s, Server IP: %s", name, serverIP.getHostAddress()));
                     primaryStage.setScene(mainScene);
                     primaryStage.sizeToScene();
+                    updateScanning = true;
                 }
             }
         });
@@ -106,19 +181,14 @@ public class ClientMain extends Application{
 
         resetRowCount();
 
-        ListView<String> chatList = new ListView<>();
+        chatList = new ListView<>();
         ObservableList<String> chatsInfo = FXCollections.observableArrayList(toSummaryChatInfo());
         chatList.setItems(chatsInfo);
         Button newChatButton = new Button("New Chat");
         newChatButton.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                Chat c = newChat();
-                if (c != null) {
-                    chats.add(c);
-                    ObservableList<String> chatsInfo = FXCollections.observableArrayList(toSummaryChatInfo());
-                    chatList.setItems(chatsInfo);
-                }
+                newChat();
             }
         });
         Button openChatButton = new Button("Open Chat");
@@ -127,10 +197,12 @@ public class ClientMain extends Application{
             public void handle(ActionEvent event) {
                 int selected = chatList.getSelectionModel().getSelectedIndex();
                 if (selected > -1) {
+                    chatIn = selected;
                     ObservableList<String> chatsObservableList =
                             FXCollections.observableArrayList(toSummaryChatHistory(selected));
                     chatHistory.setItems(chatsObservableList);
-                    chatIDLabel.setText(chats.get(selected).getChatID());
+                    currentChatID = chats.get(selected).getChatID();
+                    chatIDLabel.setText("Chat ID: " + currentChatID);
                     primaryStage.setScene(chatScene);
                 }
             }
@@ -143,6 +215,37 @@ public class ClientMain extends Application{
         primaryStage.setScene(loginScene);
         primaryStage.sizeToScene();
         primaryStage.show();
+    }
+
+    private void processPacket(PacketInfo newData) {
+        if (newData.function == 'x') {
+            String[] data = enhancedSplit(newData.info, 1);
+            String chatID = data[0];
+            String user = data[1];
+            Chat c = new Chat(chatID, user);
+            chats.add(c);
+            ObservableList<String> chatsInfo = FXCollections.observableArrayList(toSummaryChatInfo());
+            chatList.setItems(chatsInfo);
+        } else if (newData.function == 'p') {
+            String[] data = enhancedSplit(newData.info, 2);
+            String chatID = data[0];
+            String user = data[1];
+            String message = data[2];
+            Message m = new Message(chatID, message, user);
+            Chat c = findChat(chatID);
+            c.addMessage(m);
+            if (chatIn >= 0 && chats.get(chatIn).getChatID().equals(chatID)) {
+                ObservableList<String> chatsObservableList =
+                        FXCollections.observableArrayList(toSummaryChatHistory(chatIn));
+                chatHistory.setItems(chatsObservableList);
+            }
+            ObservableList<String> chatsInfo = FXCollections.observableArrayList(toSummaryChatInfo());
+            // Hack to make list update...
+            chatsInfo.add(" ");
+            chatList.setItems(chatsInfo);
+            chatsInfo.remove(chatsInfo.size() - 1);
+            chatList.setItems(chatsInfo);
+        }
     }
 
     private ArrayList<String> toSummaryChatHistory(int selected) {
@@ -164,15 +267,22 @@ public class ClientMain extends Application{
         return info;
     }
 
-    private Chat newChat() {
+    private void newChat() {
         try {
             new PacketInfo(receiver, ChatConsts.serverPort, serverIP, 'c', name).sendPacket(true, receiver.getLocalPort());
         } catch (IOException e) {
-            return null;
+            e.printStackTrace();
+            //return null;
         }
+    }
 
-        PacketInfo response = PacketInfo.getNewData(receiver);
-        return new Chat(response.info, name);
+    private Chat findChat (String id) {
+        for (Chat c : chats) {
+            if (c.getChatID().equals(id)) {
+                return c;
+            }
+        }
+        return null;
     }
 
     private boolean sendUserRegister(String user, String ipFieldText) {
@@ -223,5 +333,27 @@ public class ClientMain extends Application{
         alert.setContentText(cmd);
 
         alert.showAndWait();
+    }
+
+    public static void popup (String stats) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Stats");
+        alert.setContentText(stats);
+        alert.showAndWait();
+    }
+
+    private static String[] enhancedSplit(String info, int i) {
+        String[] data = new String[i + 1];
+        String[] split = info.split(":");
+        int j = 0;
+        for (; j < i; j++) {
+            data[j] = split[j];
+        }
+        StringBuilder tail = new StringBuilder();
+        for (int k = j; k < split.length; k++) {
+            tail.append(split[k]);
+        }
+        data[j] = tail.toString();
+        return data;
     }
 }

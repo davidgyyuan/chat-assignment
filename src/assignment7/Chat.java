@@ -1,14 +1,15 @@
 package assignment7;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
+import javafx.beans.value.ObservableValue;
 
-public class Chat {
+import java.util.*;
+
+public class Chat implements Observer {
     private String chatID;
     private HashSet<String> users = new HashSet<>();
     private ArrayList<Message> messages = new ArrayList<>();
     private String initUser;
+    private ObservableString newMessage = new ObservableString(this);
 
     public Chat(String chatID, String initUser) {
         this.chatID = chatID;
@@ -23,17 +24,22 @@ public class Chat {
     }
 
     public void addMessage(Message m) {
+        newMessage.setValue(String.format("%s:%s:%s", chatID, m.name, m.message));
         messages.add(m);
     }
 
-    public void broadcastLatestMessage() {
-        Message sent = messages.get(messages.size() - 1);
-        for (String s : users) {
-            User u = ServerMain.userMap.get(s);
-            u.backlog.add(new PacketInfo(ServerMain.receiver, u.port, u.ip, 'p',
-                    String.format("%s:%s:%s", chatID, sent.name, sent.message)));
-        }
+    public void addMessageClient(Message m) {
+        messages.add(m);
     }
+
+//    public void broadcastLatestMessage() {
+//        Message sent = messages.get(messages.size() - 1);
+//        for (String s : users) {
+//            User u = ServerMain.userMap.get(s);
+//            u.backlog.add(new PacketInfo(ServerMain.receiver, u.port, u.ip, 'p',
+//                    String.format("%s:%s:%s", chatID, sent.name, sent.message)));
+//        }
+//    }
 
     public void addUser(String s) {
         users.add(s);
@@ -67,5 +73,14 @@ public class Chat {
 
     public Collection<String> getUsers() {
         return users;
+    }
+
+    @Override
+    public void update(Observable o, Object arg) {
+        String info = ((ObservableString) o).getValue();
+        for (String s : users) {
+            User u = ServerMain.userMap.get(s);
+            u.backlog.add(new PacketInfo(ServerMain.receiver, u.port, u.ip, 'p', info));
+        }
     }
 }

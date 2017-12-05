@@ -21,6 +21,8 @@ import java.util.ArrayList;
 
 public class ClientMain extends Application{
 
+    static final boolean inDebug = false;
+
     static String name;
     static InetAddress serverIP;
     static DatagramSocket receiver;
@@ -39,7 +41,9 @@ public class ClientMain extends Application{
         while (true) {
             try {
                 receiver = new DatagramSocket(ChatConsts.clientPort + i);
-                receiver.setSoTimeout(200);
+                if (! inDebug) {
+                    receiver.setSoTimeout(200);
+                }
                 break;
             } catch (SocketException e) {
                 i++;
@@ -68,9 +72,9 @@ public class ClientMain extends Application{
                     }
                     return;
                 }
-                if (! serverUp) {
+                /*if (! serverUp) {
                     popup("Server is up.");
-                }
+                }*/
                 serverUp = true;
                 int updates = Integer.parseInt(response.info);
                 //System.out.println(updates);
@@ -266,7 +270,7 @@ public class ClientMain extends Application{
             String message = data[2];
             Message m = new Message(chatID, message, user);
             Chat c = findChat(chatID);
-            c.addMessage(m);
+            c.addMessageClient(m);
             if (chatIn >= 0 && chats.get(chatIn).getChatID().equals(chatID)) {
                 ObservableList<String> chatsObservableList =
                         FXCollections.observableArrayList(toSummaryChatHistory(chatIn));

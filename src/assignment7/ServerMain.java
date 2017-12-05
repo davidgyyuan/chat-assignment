@@ -89,7 +89,6 @@ public class ServerMain {
                 String message = data[2];
                 Chat c = chatMap.get(id);
                 c.addMessage(new Message(id, message, name));
-                c.broadcastLatestMessage();
             } else if (receivedData.function == 'r') {
                 String name = receivedData.info;
                 User u = userMap.get(name);

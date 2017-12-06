@@ -2,6 +2,7 @@ package assignment7;
 
 import java.io.IOException;
 import java.net.*;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Random;
 
@@ -16,12 +17,13 @@ import java.util.Random;
             chatID:added user
         m - message
             chatID:name:message
-        u - user registration
+        u - user registration -> existing chats to push
             username
         r - request for backlog -> number of backlogged actions
             name
         l - return all members of chat
             chatID
+        k - ready for data
 
         y - successful response
             some info
@@ -31,6 +33,8 @@ import java.util.Random;
             chatID:inituser
         p - new message
             chatID:user:message
+        e - existing chat
+            chatID:user of last message:message
 
 */
 
@@ -48,24 +52,49 @@ public class ServerMain {
         System.out.print("Server IP: ");
         System.out.println(Inet4Address.getLocalHost().getHostAddress());
         receiver = new DatagramSocket(ChatConsts.serverPort);
-
+        receiver.setSoTimeout(500);
         while (true) {
             PacketInfo receivedData = PacketInfo.getNewData(receiver);
             if (receivedData == null) {
                 continue;
             }
             if (receivedData.function == 'u') {
-                /*if (userMap.containsKey(receivedData.info)) {
-                    sendPacket(new PacketInfo(receivedData.ip, 'n', "User exists"));
-                }*/
-                userMap.put(receivedData.info, new User(receivedData.ip, receivedData.port, receivedData.info));
-                new PacketInfo(receiver, receivedData.port, receivedData.ip, 'y', " ").sendPacket();
+                if (userMap.containsKey(receivedData.info)) {
+                    User existing = userMap.get(receivedData.info);
+                    existing.clearBacklog();
+                    existing.ip = receivedData.ip;
+                    existing.port = receivedData.port;
+                    int existingChats = existing.participantChats.size();
+                    Object[] userChats = existing.participantChats.toArray();
+                    new PacketInfo(receiver, receivedData.port, receivedData.ip, 'y',
+                            Integer.toString(existingChats)).sendPacket();
+                    for (int i = 0; i < existingChats; i++) {
+                        PacketInfo.getNewData(receiver); // Ready packet
+                        Chat toSend = (Chat) userChats[i];
+                        Message lastMessage = toSend.getLastMessageComplete();
+                        String lastUser;
+                        String lastText;
+                        if (lastMessage == null) {
+                            lastUser = "null";
+                            lastText = "null";
+                        } else {
+                            lastUser = lastMessage.name;
+                            lastText = lastMessage.message;
+                        }
+                        new PacketInfo(receiver, receivedData.port, receivedData.ip, 'e',
+                                String.format("%s:%s:%s", toSend.getChatID(), lastUser, lastText)).sendPacket();
+                    }
+                } else {
+                    userMap.put(receivedData.info, new User(receivedData.ip, receivedData.port, receivedData.info));
+                    new PacketInfo(receiver, receivedData.port, receivedData.ip, 'y', "0").sendPacket();
+                }
             } else if (receivedData.function == 'c') {
                 String user = receivedData.info;
                 String id = generateID();
                 Chat c =  new Chat(id, user);
                 chatMap.put(id, c);
                 c.broadcastNewChat(user);
+                userMap.get(user).participantChats.add(c);
                 //new PacketInfo(receiver, receivedData.port, receivedData.ip, 'y', id).sendPacket(false, receiver.getLocalPort());
             } else if (receivedData.function == 'a') {
                 String[] data = enhancedSplit(receivedData.info, 1);
@@ -73,11 +102,11 @@ public class ServerMain {
                 String user = data[1];
                 if (chatMap.get(id).hasUser(user)) {
                     new PacketInfo(receiver, receivedData.port, receivedData.ip, 'n', "a").sendPacket();
-                }
-                else if (userMap.containsKey(user)) {
+                } else if (userMap.containsKey(user)) {
                     Chat c = chatMap.get(id);
                     c.addUser(user);
                     c.broadcastUserAdd(user);
+                    userMap.get(user).participantChats.add(c);
                     new PacketInfo(receiver, receivedData.port, receivedData.ip, 'y', " ").sendPacket();
                 } else {
                     new PacketInfo(receiver, receivedData.port, receivedData.ip, 'n', "e").sendPacket();

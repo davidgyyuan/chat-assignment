@@ -1,7 +1,5 @@
 package assignment7;
 
-import javafx.beans.value.ObservableValue;
-
 import java.util.*;
 
 public class Chat implements Observer {
@@ -10,6 +8,10 @@ public class Chat implements Observer {
     private ArrayList<Message> messages = new ArrayList<>();
     private String initUser;
     private ObservableString newMessage = new ObservableString(this);
+
+    public Chat(String chatID) {
+        this.chatID = chatID;
+    }
 
     public Chat(String chatID, String initUser) {
         this.chatID = chatID;
@@ -61,6 +63,13 @@ public class Chat implements Observer {
             return "No messages here yet...";
         }
         return messages.get(messages.size() - 1).message;
+    }
+
+    public Message getLastMessageComplete() {
+        if (messages.isEmpty()) {
+            return null;
+        }
+        return messages.get(messages.size() - 1);
     }
 
     public ArrayList<Message> getMessages() {

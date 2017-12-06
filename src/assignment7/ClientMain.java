@@ -195,6 +195,8 @@ public class ClientMain extends Application{
                     primaryStage.sizeToScene();
                     updateScanning = true;
                     serverUp = true;
+                    ObservableList<String> chatsInfo = FXCollections.observableArrayList(toSummaryChatInfo());
+                    chatList.setItems(chatsInfo);
                 }
             }
         });
@@ -324,7 +326,7 @@ public class ClientMain extends Application{
 
     private boolean sendUserRegister(String user, String ipFieldText) {
         try {
-            new PacketInfo(receiver, ChatConsts.serverPort, InetAddress.getByName(ipFieldText), 'u', user).sendPacket(true, receiver.getLocalPort());
+            new PacketInfo(receiver, ChatConsts.serverPort, InetAddress.getByName(ipFieldText), 'u', user).sendPacket();
         } catch (IOException e) {
             e.printStackTrace();
             error("Problem connecting to server, are you sure the IP address is accurate?");
@@ -338,6 +340,25 @@ public class ClientMain extends Application{
         if (response.function == 'y') {
             name = user;
             serverIP = response.ip;
+            int existingChats = Integer.parseInt(response.info);
+            for (int i = 0; i < existingChats; i++) {
+                try {
+                    new PacketInfo(receiver, ChatConsts.serverPort, serverIP, 'k', " ").sendPacket();
+                    PacketInfo newResponse = PacketInfo.getNewData(receiver);
+                    String[] data = enhancedSplit(newResponse.info, 2);
+                    String chatID = data[0];
+                    String chatUser = data[1];
+                    String chatText = data[2];
+                    Chat existingChat = new Chat(chatID);
+                    if (! chatUser.equals("null")) {
+                        Message m = new Message(chatID, chatText, chatUser);
+                        existingChat.addMessageClient(m);
+                    }
+                    chats.add(existingChat);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
             return true;
         } else {
             return false;

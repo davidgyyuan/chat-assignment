@@ -1,7 +1,5 @@
 package assignment7;
 
-import org.omg.PortableInterceptor.INACTIVE;
-
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
